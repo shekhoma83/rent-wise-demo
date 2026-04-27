@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Rent Wise - نظام إدارة العقارات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* جميع الأنماط كما هي في الكود السابق (لم يتغير شيء) */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 30%, #1a1a1a, #000000);
+            z-index: -2;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 8px);
+            z-index: -1;
+            animation: slowMove 20s linear infinite;
+        }
+        @keyframes slowMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 50px 50px; }
+        }
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            direction: rtl;
+        }
+        .sidebar {
+            width: 280px;
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .sidebar .action-btn {
+            width: 100%;
+            justify-content: flex-start;
+            padding: 12px 18px;
+            font-size: 14px;
+            border-radius: 14px;
+            background: rgba(30, 30, 40, 0.8);
+            border: none;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar .action-btn i { width: 24px; font-size: 18px; }
+        .sidebar .action-btn:hover {
+            transform: translateX(-3px);
+            filter: brightness(1.1);
+            background: #2c2c3a;
+        }
+        .sidebar .btn-primary { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .sidebar .btn-secondary { background: linear-gradient(135deg, #10b981, #059669); }
+        .sidebar .btn-export { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .sidebar .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .sidebar .btn-showall { background: linear-gradient(135deg, #17a2b8, #138496); }
+        .sidebar .btn-logout { background: linear-gradient(135deg, #6c757d, #495057); }
+        .sidebar .btn-buildings { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .main-content {
+            flex: 1;
+            padding: 20px 25px;
+            overflow-x: auto;
+        }
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 24px;
+            padding: 12px 25px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .company-info h1 { font-size: 24px; font-weight: 800; margin: 0; }
+        .company-info p { font-size: 12px; opacity: 0.8; margin: 4px 0 0; }
+        .lang-date {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .lang-btn {
+            background: #334155;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .date-time {
+            font-family: monospace;
+            background: rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+        }
+        .income-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .income-card {
+            background: rgba(20, 20, 30, 0.9);
+            border-radius: 16px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-right: 4px solid;
+        }
+        .income-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .income-info .income-label { font-size: 13px; color: #aaa; }
+        .income-value { font-size: 24px; font-weight: 800; color: #fff; }
+        .upload-card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            border-radius: 16px;
+            padding: 12px 20px;
+            margin-bottom: 25px;
+            border: 2px dashed #f59e0b;
+            text-align: center;
+        }
+        .upload-card h3 { font-size: 16px; margin: 5px 0; }
+        .upload-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            padding: 6px 16px;
+            border-radius: 30px;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+        .file-info { font-size: 11px; margin-top: 6px; opacity: 0.8; }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            border-radius: 16px;
+            padding: 12px;
+            text-align: center;
+            border-bottom: 3px solid #f59e0b;
+        }
+        .summary-number { font-size: 26px; font-weight: 800; }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 6px 18px;
+            border-radius: 40px;
+            width: fit-content;
+        }
+        .buildings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .building-card {
+            background: rgba(30,30,40,0.9);
+            border-radius: 20px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .building-card:hover { transform: translateY(-4px); background: #2a2a35; }
+        .card-header {
+            background: linear-gradient(135deg, #06b6d4, #3b82f6);
+            padding: 10px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+        }
+        .card-body { padding: 12px; }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 450px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        th, td {
+            padding: 10px 8px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            color: #eee;
+        }
+        th { background: #1e1e2a; position: sticky; top: 0; }
+        .overdue-row { background-color: rgba(220, 38, 38, 0.2); }
+        .overdue-value { color: #f87171; font-weight: bold; }
+        .action-icons button {
+            background: none;
+            border: none;
+            font-size: 16px;
+            margin: 0 4px;
+            cursor: pointer;
+        }
+        .edit-btn { color: #60a5fa; }
+        .delete-btn, .delete-payment-btn { color: #f87171; }
+        .evict-btn { color: #fbbf24; }
+        .edit-payment-btn { color: #34d399; }
+        .rent-btn, .add-unit-btn {
+            background: #10b981;
+            padding: 4px 12px;
+            border-radius: 30px;
+            color: white;
+            border: none;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .print-btn {
+            background: #6c757d;
+            padding: 4px 12px;
+            border-radius: 30px;
+            border: none;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .footer-note { text-align: center; padding: 15px; opacity: 0.6; font-size: 12px; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #1e1e2e;
+            border-radius: 28px;
+            max-width: 550px;
+            width: 90%;
+            padding: 25px;
+            color: #eee;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: white;
+            cursor: pointer;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            background: #2a2a35;
+            color: white;
+            font-family: 'Cairo', sans-serif;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .submit-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .login-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000e6;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+        }
+        .login-card {
+            background: #111;
+            padding: 2rem;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,255,255,0.1);
+        }
+        .login-card h2 { margin-bottom: 1rem; }
+        .login-card input {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            border-radius: 40px;
+            border: none;
+            text-align: center;
+            background: #222;
+            color: white;
+        }
+        .login-card button {
+            background: #0dcaf0;
+            border: none;
+            padding: 10px;
+            width: 100%;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        @media (max-width: 800px) {
+            .sidebar { width: 220px; }
+            .main-content { padding: 15px; }
+            .logo-icon { width: 60px; height: 60px; }
+        }
+        @media (max-width: 650px) {
+            .app-layout { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+            }
+            .sidebar .action-btn { width: auto; flex: 1 0 auto; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen">
+    <div class="login-card">
+        <h2><i class="fas fa-chart-line"></i> <span data-i18n="appName">Rent Wise</span></h2>
+        <input type="text" id="username" placeholder="اسم المستخدم" autocomplete="off">
+        <input type="password" id="password" placeholder="كلمة المرور">
+        <button onclick="login()" data-i18n="login">دخول</button>
+        <div id="errorMsg" style="color:#ff6666; margin-top:10px;"></div>
+        <div style="margin-top:20px; opacity:0.7;"><span data-i18n="demoNote">بيانات الدخول: </span><strong>admin / 12345</strong></div>
+    </div>
+</div>
+
+<div id="dashboardMain" class="dashboard-main" style="display:none;">
+    <div class="app-layout">
+        <div class="sidebar">
+            <button class="action-btn btn-buildings" onclick="openAddBuildingModal()"><i class="fas fa-building"></i> <span data-i18n="addBuilding">إضافة بناية جديدة</span></button>
+            <button class="action-btn btn-buildings" onclick="openAddUnitToBuildingModal()"><i class="fas fa-plus-circle"></i> <span data-i18n="addUnitsToBuilding">إضافة وحدات إلى بناية</span></button>
+            <button class="action-btn btn-primary" onclick="openUnitForm()"><i class="fas fa-plus"></i> <span data-i18n="addRentalUnit">إضافة وحدة جديدة</span></button>
+            <button class="action-btn btn-secondary" onclick="openPaymentForm()"><i class="fas fa-money-bill-wave"></i> <span data-i18n="recordPayment">تسجيل تحصيل</span></button>
+            <button class="action-btn btn-export" onclick="exportAllData()"><i class="fas fa-download"></i> <span data-i18n="exportData">تصدير كل البيانات</span></button>
+            <button class="action-btn btn-danger" onclick="resetAllData()"><i class="fas fa-trash-alt"></i> <span data-i18n="resetData">إعادة ضبط البيانات</span></button>
+            <button class="action-btn btn-showall" onclick="showAllBuildingsReport()"><i class="fas fa-building"></i> <span data-i18n="showAllBuildings">عرض كل المباني</span></button>
+            <button class="action-btn btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">تسجيل الخروج</span></button>
+        </div>
+        <div class="main-content">
+            <div class="dashboard-header">
+                <div class="logo-area">
+                    <div class="logo-icon"><img src="logo.jpg" alt="Rent Wise" onerror="this.src='https://via.placeholder.com/80?text=RW'"></div>
+                    <div class="company-info">
+                        <h1><i class="fas fa-chart-line"></i> Rent Wise</h1>
+                        <p><i class="fas fa-map-marker-alt"></i> <span data-i18n="headerSub">إدارة المباني | المتأخرات حسب استحقاق أول الشهر</span></p>
+                    </div>
+                </div>
+                <div class="lang-date">
+                    <button class="lang-btn" id="langToggleBtn">🇬🇧 English</button>
+                    <div class="date-time" id="dateTime"></div>
+                </div>
+            </div>
+            <div class="income-cards">
+                <div class="income-card" style="border-right-color:#f59e0b;"><div class="income-icon" style="background:#fef3c7;color:#d97706;"><i class="fas fa-dollar-sign"></i></div><div class="income-info"><div class="income-label" data-i18n="totalMonthlyIncome">إجمالي الدخل الشهري</div><div class="income-value" id="totalMonthlyRent">0 ر.ع.</div></div></div>
+                <div class="income-card" style="border-right-color:#10b981;"><div class="income-icon" style="background:#d1fae5;color:#059669;"><i class="fas fa-hand-holding-usd"></i></div><div class="income-info"><div class="income-label" data-i18n="totalPayments">إجمالي المدفوعات</div><div class="income-value" id="totalCollectedIncome">0 ر.ع.</div></div></div>
+                <div class="income-card" style="border-right-color:#ef4444;"><div class="income-icon" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-exclamation-triangle"></i></div><div class="income-info"><div class="income-label" data-i18n="totalArrears">إجمالي المتأخرات</div><div class="income-value" id="totalOverdueIncome">0 ر.ع.</div></div></div>
+            </div>
+            <div class="upload-card">
+                <i class="fas fa-file-excel" style="font-size: 28px; color: #10b981;"></i>
+                <h3 data-i18n="uploadExcelTitle">رفع ملف الإكسيل (بيانات البنايات والوحدات الأساسية)</h3>
+                <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display:none;">
+                <button class="upload-btn" onclick="document.getElementById('excelUpload').click()" data-i18n="uploadExcelBtn">اختيار ملف Excel</button>
+                <div class="file-info" id="fileInfo" data-i18n="fileInfoText">📁 قم برفع ملف إكسيل يحتوي على أعمدة: اسم البناية، رقم الوحدة، وصف الوحدة، عداد الكهرباء، عداد المياه</div>
+            </div>
+            <div class="summary-stats" id="summaryStats"></div>
+            <div class="section-title"><i class="fas fa-building"></i> <span data-i18n="buildingsTitle">🏢 البنايات</span> <button class="print-btn" onclick="printSection('buildingsGrid', 'تقرير البنايات')"><i class="fas fa-print"></i> <span data-i18n="print">طباعة</span></button></div>
+            <div class="buildings-grid" id="buildingsGrid"></div>
+            <div class="building-details-section" id="buildingDetailsSection" style="display:none;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3 id="detailsBuildingName"></h3><div><button class="print-btn" onclick="printSection('buildingDetailsTable', 'تفاصيل البناية')"><i class="fas fa-print"></i> <span data-i18n="print">طباعة</span></button><button class="close-details" onclick="closeBuildingDetails()" style="background:#ef4444; border:none; padding:5px 12px; border-radius:30px; color:white;"><span data-i18n="close">✕ إغلاق</span></button></div></div>
+                <div class="table-wrapper"><table id="buildingDetailsTable"><thead><tr><th data-i18n="unit">الوحدة</th><th data-i18n="description">وصف</th><th data-i18n="tenant">المستأجر</th><th data-i18n="idNumber">الهوية</th><th data-i18n="phone">الهاتف</th><th data-i18n="rent">الإيجار</th><th data-i18n="electricity">كهرباء</th><th data-i18n="water">مياه</th><th data-i18n="contractDuration">مدة العقد</th><th data-i18n="startDate">بداية</th><th data-i18n="endDate">نهاية</th><th data-i18n="arrears">المتأخرات</th><th data-i18n="actions">إجراءات</th></tr></thead><tbody></tbody></table></div>
+            </div>
+            <div class="section-title"><i class="fas fa-door-open"></i> <span data-i18n="vacantTitle">🚪 الوحدات الشاغرة</span> <button class="print-btn" onclick="printSection('vacantSection', 'الوحدات الشاغرة')"><i class="fas fa-print"></i> <span data-i18n="print">طباعة</span></button></div>
+            <div class="vacant-section" id="vacantSection"></div>
+            <div class="section-title"><i class="fas fa-file-alt"></i> <span data-i18n="overdueTitle">📋 تقرير المتأخرات</span> <button class="print-btn" onclick="printSection('reportSection', 'تقرير المتأخرات')"><i class="fas fa-print"></i> <span data-i18n="print">طباعة</span></button></div>
+            <div class="report-section" id="reportSection"></div>
+            <div class="section-title"><i class="fas fa-list-alt"></i> <span data-i18n="paymentsTitle">💰 سجل التحصيلات</span> <button class="print-btn" onclick="printSection('paymentsSection', 'سجل التحصيلات')"><i class="fas fa-print"></i> <span data-i18n="print">طباعة</span></button></div>
+            <div class="payments-section" id="paymentsSection"></div>
+            <div class="footer-note">Rent Wise - <span data-i18n="footer">نظام إدارة العقارات</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- النوافذ المنبثقة (كما هي، مع إضافة data-i18n للعناوين) -->
+<div id="addBuildingModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="addBuildingTitle">إضافة بناية جديدة</h2><button class="close-modal" onclick="closeAddBuildingModal()">&times;</button></div><form id="addBuildingForm" onsubmit="addNewBuilding(event)"><div class="form-group"><label data-i18n="buildingName">اسم البناية *</label><input type="text" id="newBuildingName" required></div><div class="form-group"><label data-i18n="buildingDesc">وصف البناية</label><input type="text" id="newBuildingDesc"></div><button type="submit" class="submit-btn" data-i18n="save">حفظ</button></form></div></div>
+<div id="addUnitToBuildingModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="addUnitsTitle">إضافة وحدات إلى البناية</h2><button class="close-modal" onclick="closeAddUnitToBuildingModal()">&times;</button></div><form onsubmit="addUnitToBuilding(event)"><div class="form-group"><label data-i18n="building">البناية</label><select id="targetBuildingSelect" required></select></div><div class="form-row"><div class="form-group"><label data-i18n="unitNumber">رقم الوحدة</label><input type="text" id="targetUnitNumber" required></div><div class="form-group"><label data-i18n="unitType">وصف الوحدة</label><input type="text" id="targetUnitType"></div></div><div class="form-row"><div class="form-group"><label data-i18n="electricityMeter">عداد الكهرباء</label><input type="text" id="targetElectricity"></div><div class="form-group"><label data-i18n="waterMeter">عداد المياه</label><input type="text" id="targetWater"></div></div><button type="submit" class="submit-btn" data-i18n="addUnitBtn">إضافة وحدة</button></form><hr><h4 data-i18n="addMultipleTitle">إضافة متعددة</h4><form onsubmit="addMultipleUnits(event)"><div class="form-group"><label data-i18n="multipleUnitsLabel">أرقام الوحدات (مفصولة بفواصل)</label><input type="text" id="multipleUnitsNumbers" placeholder="101,102,103"></div><button type="submit" class="submit-btn" data-i18n="addMultipleBtn">إضافة وحدات متعددة</button></form></div></div>
+<div id="unitModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="addRentalUnitTitle">إضافة وحدة جديدة (تأجير)</h2><button class="close-modal" onclick="closeUnitModal()">&times;</button></div><form id="unitForm" onsubmit="addUnit(event)"><div class="form-row"><div class="form-group"><label data-i18n="building">البناية</label><select id="buildingSelect" required onchange="updateUnitNumbersList()"></select></div><div class="form-group"><label data-i18n="unitNumber">رقم الوحدة</label><select id="unitNumberSelect" required></select></div></div><div class="form-group"><label data-i18n="tenantName">المستأجر</label><input type="text" id="tenantName" required></div><div class="form-row"><div class="form-group"><label data-i18n="idNumber">رقم الهوية</label><input type="text" id="tenantId" required></div><div class="form-group"><label data-i18n="phoneNumber">رقم الهاتف</label><input type="tel" id="tenantPhone" required></div></div><div class="form-row"><div class="form-group"><label data-i18n="unitType">وصف الوحدة</label><input type="text" id="unitType"></div><div class="form-group"><label data-i18n="activity">النشاط</label><input type="text" id="activity"></div></div><div class="form-row"><div class="form-group"><label data-i18n="monthlyRent">الإيجار الشهري</label><input type="number" id="rentValue" step="0.01" required></div><div class="form-group"><label data-i18n="electricityMeter">عداد الكهرباء</label><input type="text" id="electricity" readonly></div></div><div class="form-row"><div class="form-group"><label data-i18n="waterMeter">عداد المياه</label><input type="text" id="water" readonly></div><div class="form-group"><label data-i18n="contractMonths">مدة العقد (شهر)</label><input type="number" id="contractDuration" value="12" required></div></div><div class="form-row"><div class="form-group"><label data-i18n="startDate">تاريخ بداية العقد</label><input type="text" id="startDate" required></div><div class="form-group"><label data-i18n="endDate">تاريخ النهاية</label><input type="text" id="endDateDisplay" readonly></div></div><button type="submit" class="submit-btn" data-i18n="saveUnit">حفظ الوحدة</button></form></div></div>
+<div id="paymentModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="recordPaymentTitle">تسجيل تحصيل</h2><button class="close-modal" onclick="closePaymentModal()">&times;</button></div><form id="paymentForm" onsubmit="recordPayment(event)"><div class="form-group"><label data-i18n="building">البناية</label><select id="paymentBuilding" required onchange="updateUnitsByBuilding()"></select></div><div class="form-group"><label data-i18n="unit">الوحدة</label><select id="paymentUnit" required></select></div><div class="form-group"><label data-i18n="amount">المبلغ</label><input type="number" id="paymentAmount" step="0.01" required></div><div class="form-group"><label data-i18n="paymentDate">تاريخ التحصيل</label><input type="text" id="paymentDate" required></div><button type="submit" class="submit-btn" data-i18n="recordBtn">تسجيل</button></form></div></div>
+<div id="editUnitModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="editUnitTitle">تعديل الوحدة</h2><button class="close-modal" onclick="closeEditModal()">&times;</button></div><form id="editForm" onsubmit="updateUnit(event)"><input type="hidden" id="editUnitId"><div class="form-group"><label data-i18n="tenantName">المستأجر</label><input type="text" id="editTenant" required></div><div class="form-row"><div class="form-group"><label data-i18n="idNumber">رقم الهوية</label><input type="text" id="editIdNumber"></div><div class="form-group"><label data-i18n="phoneNumber">رقم الهاتف</label><input type="tel" id="editPhone"></div></div><div class="form-group"><label data-i18n="monthlyRent">الإيجار الشهري</label><input type="number" id="editRent" step="0.01" required></div><div class="form-group"><label data-i18n="contractMonths">مدة العقد (شهر)</label><input type="number" id="editDuration" required></div><div class="form-group"><label data-i18n="startDate">تاريخ بداية العقد</label><input type="text" id="editStartDate" required></div><div class="form-group"><label data-i18n="endDate">تاريخ النهاية</label><input type="text" id="editEndDateDisplay" readonly></div><button type="submit" class="submit-btn" data-i18n="updateBtn">تحديث</button></form></div></div>
+<div id="editPaymentModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="editPaymentTitle">تعديل التحصيل</h2><button class="close-modal" onclick="closeEditPaymentModal()">&times;</button></div><form id="editPaymentForm" onsubmit="updatePayment(event)"><input type="hidden" id="editPaymentId"><input type="hidden" id="editPaymentUnitId"><div class="form-group"><label data-i18n="amount">المبلغ</label><input type="number" id="editPaymentAmount" step="0.01" required></div><div class="form-group"><label data-i18n="paymentDate">التاريخ</label><input type="text" id="editPaymentDate" required></div><button type="submit" class="submit-btn" data-i18n="updateBtn">تحديث</button></form></div></div>
+<div id="rentVacantModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 data-i18n="rentVacantTitle">تأجير وحدة شاغرة</h2><button class="close-modal" onclick="closeRentModal()">&times;</button></div><form id="rentForm" onsubmit="rentVacantUnit(event)"><input type="hidden" id="rentBuilding"><input type="hidden" id="rentUnitNumber"><div class="form-group"><label data-i18n="tenantName">المستأجر</label><input type="text" id="rentTenant" required></div><div class="form-row"><div class="form-group"><label data-i18n="idNumber">رقم الهوية</label><input type="text" id="rentIdNumber" required></div><div class="form-group"><label data-i18n="phoneNumber">رقم الهاتف</label><input type="tel" id="rentPhone" required></div></div><div class="form-group"><label data-i18n="monthlyRent">الإيجار الشهري</label><input type="number" id="rentMonthly" step="0.01" required></div><div class="form-group"><label data-i18n="contractMonths">مدة العقد (شهر)</label><input type="number" id="rentDuration" value="12" required></div><div class="form-group"><label data-i18n="startDate">تاريخ بداية العقد</label><input type="text" id="rentStartDate" required></div><div class="form-group"><label data-i18n="endDate">تاريخ النهاية</label><input type="text" id="rentEndDateDisplay" readonly></div><button type="submit" class="submit-btn" data-i18n="rentBtn">تأجير</button></form></div></div>
+
+<script>
+// ==================== التوابع الأساسية ====================
+function formatDateForDisplay(isoDate) { if (!isoDate) return '-'; let p = isoDate.split('-'); if(p.length!==3) return isoDate; return p[2]+'/'+p[1]+'/'+p[0]; }
+function convertDMYtoYMD(d) { if(!d) return ''; let p=d.split('/'); if(p.length!==3) return ''; return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); }
+function convertYMDtoDMY(d) { if(!d) return ''; let p=d.split('-'); if(p.length!==3) return ''; return p[2]+'/'+p[1]+'/'+p[0]; }
+function isValidDateDMY(s) { let p=s.split('/'); if(p.length!==3) return false; let d=parseInt(p[0]), m=parseInt(p[1]), y=parseInt(p[2]); if(isNaN(d)||isNaN(m)||isNaN(y)) return false; if(m<1||m>12) return false; let days=new Date(y,m,0).getDate(); return d>=1 && d<=days; }
+function getMonthsDue(start,endD){ if(!start) return 0; let today=new Date(); today.setHours(0,0,0,0); let st=new Date(start); st.setHours(0,0,0,0); let en=endD?new Date(endD):null; if(en && en<today){ let m=(en.getFullYear()-st.getFullYear())*12+(en.getMonth()-st.getMonth())+1; return m<0?0:m; } let dy=today.getFullYear()-st.getFullYear(), dm=today.getMonth()-st.getMonth(); let due=dy*12+dm+1; return due<0?0:due; }
+function calculateUnitArrears(u){ if(!u.startDate) return 0; let months=getMonthsDue(u.startDate,u.endDate); let cm=u.contractDurationMonths||12; months=Math.min(months,cm); if(months<=0) return 0; let due=u.monthlyRent*months; let paid=payments.filter(p=>p.unitId===u.id).reduce((s,p)=>s+p.amount,0); let arr=due-paid; return arr>0?arr:0; }
+function calculateEndDateISO(s,dur){ if(!s||!dur) return null; let sd=new Date(s); let ed=new Date(sd); ed.setMonth(ed.getMonth()+dur); ed.setDate(ed.getDate()-1); return ed.toISOString().slice(0,10); }
+function printSection(elemId, title){ let c=document.getElementById(elemId); if(!c){alert('لا يوجد محتوى للطباعة'); return;} let clone=c.cloneNode(true); clone.querySelectorAll('.print-btn, .action-icons, .edit-btn, .delete-btn, .evict-btn, .edit-payment-btn, .delete-payment-btn, .rent-btn, .add-unit-btn').forEach(e=>e.remove()); let win=window.open('','_blank'); win.document.write(`<!DOCTYPE html><html dir="rtl"><head><title>${title} - Rent Wise</title><meta charset="UTF-8"><style>body{font-family:Cairo;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:8px;text-align:right}th{background:#f1f5f9}.header{text-align:center;margin-bottom:20px}</style></head><body><div class="header"><h2>Rent Wise - ${title}</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString()}</p></div>${clone.outerHTML}</body></html>`); win.document.close(); win.print(); }
+
+// ==================== الترجمة ====================
+const translations = {
+    ar: {
+        appName: "Rent Wise",
+        headerSub: "إدارة المباني | المتأخرات حسب استحقاق أول الشهر",
+        totalMonthlyIncome: "إجمالي الدخل الشهري",
+        totalPayments: "إجمالي المدفوعات",
+        totalArrears: "إجمالي المتأخرات",
+        uploadExcelTitle: "رفع ملف الإكسيل (بيانات البنايات والوحدات الأساسية)",
+        uploadExcelBtn: "اختيار ملف Excel",
+        fileInfoText: "📁 قم برفع ملف إكسيل يحتوي على أعمدة: اسم البناية، رقم الوحدة، وصف الوحدة، عداد الكهرباء، عداد المياه",
+        buildingsTitle: "🏢 البنايات",
+        vacantTitle: "🚪 الوحدات الشاغرة",
+        overdueTitle: "📋 تقرير المتأخرات",
+        paymentsTitle: "💰 سجل التحصيلات",
+        print: "طباعة",
+        close: "✕ إغلاق",
+        unit: "الوحدة",
+        description: "وصف",
+        tenant: "المستأجر",
+        idNumber: "الهوية",
+        phone: "الهاتف",
+        rent: "الإيجار",
+        electricity: "كهرباء",
+        water: "مياه",
+        contractDuration: "مدة العقد",
+        startDate: "بداية",
+        endDate: "نهاية",
+        arrears: "المتأخرات",
+        actions: "إجراءات",
+        addBuilding: "إضافة بناية جديدة",
+        addUnitsToBuilding: "إضافة وحدات إلى بناية",
+        addRentalUnit: "إضافة وحدة جديدة",
+        recordPayment: "تسجيل تحصيل",
+        exportData: "تصدير كل البيانات",
+        resetData: "إعادة ضبط البيانات",
+        showAllBuildings: "عرض كل المباني",
+        logout: "تسجيل الخروج",
+        login: "دخول",
+        demoNote: "بيانات الدخول: ",
+        save: "حفظ",
+        update: "تحديث",
+        buildingName: "اسم البناية *",
+        buildingDesc: "وصف البناية",
+        building: "البناية",
+        unitNumber: "رقم الوحدة",
+        unitType: "وصف الوحدة",
+        electricityMeter: "عداد الكهرباء",
+        waterMeter: "عداد المياه",
+        addUnitBtn: "إضافة وحدة",
+        addMultipleTitle: "إضافة متعددة",
+        multipleUnitsLabel: "أرقام الوحدات (مفصولة بفواصل)",
+        addMultipleBtn: "إضافة وحدات متعددة",
+        addRentalUnitTitle: "إضافة وحدة جديدة (تأجير)",
+        tenantName: "المستأجر",
+        phoneNumber: "رقم الهاتف",
+        activity: "النشاط",
+        monthlyRent: "الإيجار الشهري",
+        contractMonths: "مدة العقد (شهر)",
+        saveUnit: "حفظ الوحدة",
+        recordPaymentTitle: "تسجيل تحصيل",
+        amount: "المبلغ",
+        paymentDate: "تاريخ التحصيل",
+        recordBtn: "تسجيل",
+        editUnitTitle: "تعديل الوحدة",
+        editPaymentTitle: "تعديل التحصيل",
+        updateBtn: "تحديث",
+        rentVacantTitle: "تأجير وحدة شاغرة",
+        rentBtn: "تأجير",
+        footer: "نظام إدارة العقارات",
+        addBuildingTitle: "إضافة بناية جديدة",
+        addUnitsTitle: "إضافة وحدات إلى البناية"
+    },
+    en: {
+        appName: "Rent Wise",
+        headerSub: "Building Management | Arrears due on 1st of each month",
+        totalMonthlyIncome: "Total Monthly Income",
+        totalPayments: "Total Payments",
+        totalArrears: "Total Arrears",
+        uploadExcelTitle: "Upload Excel File (Buildings & Units Structure)",
+        uploadExcelBtn: "Choose Excel File",
+        fileInfoText: "📁 Upload Excel with columns: Building Name, Unit Number, Unit Description, Electricity Meter, Water Meter",
+        buildingsTitle: "🏢 Buildings",
+        vacantTitle: "🚪 Vacant Units",
+        overdueTitle: "📋 Arrears Report",
+        paymentsTitle: "💰 Payment History",
+        print: "Print",
+        close: "✕ Close",
+        unit: "Unit",
+        description: "Description",
+        tenant: "Tenant",
+        idNumber: "ID Number",
+        phone: "Phone",
+        rent: "Rent",
+        electricity: "Electricity",
+        water: "Water",
+        contractDuration: "Contract (months)",
+        startDate: "Start Date",
+        endDate: "End Date",
+        arrears: "Arrears",
+        actions: "Actions",
+        addBuilding: "Add New Building",
+        addUnitsToBuilding: "Add Units to Building",
+        addRentalUnit: "Add New Rental Unit",
+        recordPayment: "Record Payment",
+        exportData: "Export All Data",
+        resetData: "Reset All Data",
+        showAllBuildings: "Show All Buildings",
+        logout: "Logout",
+        login: "Login",
+        demoNote: "Demo credentials: ",
+        save: "Save",
+        update: "Update",
+        buildingName: "Building Name *",
+        buildingDesc: "Building Description",
+        building: "Building",
+        unitNumber: "Unit Number",
+        unitType: "Unit Description",
+        electricityMeter: "Electricity Meter",
+        waterMeter: "Water Meter",
+        addUnitBtn: "Add Unit",
+        addMultipleTitle: "Add Multiple",
+        multipleUnitsLabel: "Unit Numbers (comma separated)",
+        addMultipleBtn: "Add Multiple Units",
+        addRentalUnitTitle: "Add New Rental Unit",
+        tenantName: "Tenant Name",
+        phoneNumber: "Phone Number",
+        activity: "Activity",
+        monthlyRent: "Monthly Rent",
+        contractMonths: "Contract (months)",
+        saveUnit: "Save Unit",
+        recordPaymentTitle: "Record Payment",
+        amount: "Amount",
+        paymentDate: "Payment Date",
+        recordBtn: "Record",
+        editUnitTitle: "Edit Unit",
+        editPaymentTitle: "Edit Payment",
+        updateBtn: "Update",
+        rentVacantTitle: "Rent Vacant Unit",
+        rentBtn: "Rent",
+        footer: "Property Management System",
+        addBuildingTitle: "Add New Building",
+        addUnitsTitle: "Add Units to Building"
+    }
+};
+
+let currentLang = localStorage.getItem('rentwise_lang') || 'ar';
+
+function translatePage() {
+    const elements = document.querySelectorAll('[data-i18n]');
+    elements.forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang][key]) {
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                el.placeholder = translations[currentLang][key];
+            } else {
+                el.innerText = translations[currentLang][key];
+            }
+        }
+    });
+    // تحديث زر اللغة
+    const toggleBtn = document.getElementById('langToggleBtn');
+    if (toggleBtn) toggleBtn.innerText = currentLang === 'ar' ? '🇬🇧 English' : '🇸🇦 العربية';
+    document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = currentLang;
+    // تحديث عنوان الصفحة
+    document.title = translations[currentLang].appName + ' - ' + (currentLang === 'ar' ? 'نظام إدارة العقارات' : 'Property Management System');
+}
+
+function toggleLanguage() {
+    currentLang = currentLang === 'ar' ? 'en' : 'ar';
+    localStorage.setItem('rentwise_lang', currentLang);
+    translatePage();
+    // إعادة تحديث البيانات المعروضة (الجداول والبطاقات) لتغيير النصوص الديناميكية
+    if (typeof updateAll === 'function') updateAll();
+}
+
+// ==================== بيانات وتخزين ====================
+let units=[], payments=[], buildingStructure=[], selectedBuildingForReports=null;
+const STORAGE_UNITS='rentwise_units', STORAGE_PAYMENTS='rentwise_payments', STORAGE_STRUCTURE='rentwise_structure';
+function loadData(){ units=JSON.parse(localStorage.getItem(STORAGE_UNITS)||'[]'); payments=JSON.parse(localStorage.getItem(STORAGE_PAYMENTS)||'[]'); buildingStructure=JSON.parse(localStorage.getItem(STORAGE_STRUCTURE)||'[]'); updateAll(); }
+function saveData(){ localStorage.setItem(STORAGE_UNITS,JSON.stringify(units)); localStorage.setItem(STORAGE_PAYMENTS,JSON.stringify(payments)); localStorage.setItem(STORAGE_STRUCTURE,JSON.stringify(buildingStructure)); }
+function resetAllData(){ if(confirm(currentLang === 'ar' ? '⚠️ سيتم مسح كل البيانات نهائياً. هل أنت متأكد؟' : '⚠️ All data will be permanently deleted. Are you sure?')){ localStorage.clear(); units=[]; payments=[]; buildingStructure=[]; selectedBuildingForReports=null; saveData(); updateAll(); alert(currentLang === 'ar' ? '✅ تم إعادة ضبط البيانات.' : '✅ Data has been reset.'); } }
+function updateAll(){ updateIncomeCards(); renderSummaryStats(); renderBuildingsGrid(); renderVacantSection(); renderOverdueReport(); renderPaymentsList(); populateBuildingSelect(); updateBuildingSelectForPayment(); populateTargetBuildingSelect(); let d=document.getElementById('buildingDetailsSection'); if(d.style.display==='block' && selectedBuildingForReports) showBuildingDetails(selectedBuildingForReports); translatePage(); }
+function updateIncomeCards(){ let tr=units.reduce((s,u)=>s+u.monthlyRent,0); let tp=payments.reduce((s,p)=>s+p.amount,0); let ta=units.reduce((s,u)=>s+calculateUnitArrears(u),0); document.getElementById('totalMonthlyRent').innerHTML=tr.toFixed(2)+' ر.ع.'; document.getElementById('totalCollectedIncome').innerHTML=tp.toFixed(2)+' ر.ع.'; document.getElementById('totalOverdueIncome').innerHTML=ta.toFixed(2)+' ر.ع.'; }
+function renderSummaryStats(){ let tu=units.length; let allUnits= buildingStructure.reduce((a,b)=>a+b.units.length,0); let vacant=allUnits-tu; let overdue=units.filter(u=>calculateUnitArrears(u)>0).length; document.getElementById('summaryStats').innerHTML=`<div class="summary-card"><div class="summary-number">${buildingStructure.length}</div><div>${currentLang === 'ar' ? 'المباني' : 'Buildings'}</div></div><div class="summary-card"><div class="summary-number">${tu}</div><div>${currentLang === 'ar' ? 'وحدات مؤجرة' : 'Rented Units'}</div></div><div class="summary-card"><div class="summary-number">${vacant}</div><div>${currentLang === 'ar' ? 'وحدات شاغرة' : 'Vacant Units'}</div></div><div class="summary-card"><div class="summary-number">${overdue}</div><div>${currentLang === 'ar' ? 'وحدات متأخرة' : 'Overdue Units'}</div></div>`; }
+function renderBuildingsGrid(){ let html=''; buildingStructure.forEach(b=>{ let building=b.building; let buildingUnits=units.filter(u=>u.building===building); let totalRent=buildingUnits.reduce((s,u)=>s+u.monthlyRent,0); let totalArrears=buildingUnits.reduce((s,u)=>s+calculateUnitArrears(u),0); let vacantCount=b.units.length-buildingUnits.length; html+=`<div class="building-card" onclick="showBuildingDetails('${building.replace(/'/g,"\\'")}')"><div class="card-header"><h3><i class="fas fa-building"></i> ${building}</h3><span>${b.units.length} ${currentLang === 'ar' ? 'وحدات' : 'units'}</span></div><div class="card-body"><div class="info-row"><span>💰 ${currentLang === 'ar' ? 'الإيجار الشهري' : 'Monthly Rent'}</span><span>${totalRent} ر.ع.</span></div><div class="info-row"><span>⚠️ ${currentLang === 'ar' ? 'المتأخرات' : 'Arrears'}</span><span class="overdue-value">${totalArrears.toFixed(2)} ر.ع.</span></div><div class="info-row"><span>🚪 ${currentLang === 'ar' ? 'شاغرة' : 'Vacant'}</span><span>${vacantCount}</span></div></div></div>`; }); document.getElementById('buildingsGrid').innerHTML=html||'<div>'+(currentLang === 'ar' ? 'لا توجد مباني. أضف بناية أو ارفع Excel.' : 'No buildings. Add a building or upload Excel.')+'</div>'; }
+function showBuildingDetails(bname){ selectedBuildingForReports=bname; let bu=units.filter(u=>u.building===bname); let tb=''; bu.forEach(u=>{ let ar=calculateUnitArrears(u); let end=u.endDate||calculateEndDateISO(u.startDate,u.contractDurationMonths); tb+=`<tr class="${ar>0?'overdue-row':''}"> <td>${u.unit}</td><td>${u.unitType||'-'}</td><td>${u.tenant}</td><td>${u.idNumber||'-'}</td><td>${u.phone||'-'}</td><td>${u.monthlyRent} ر.ع.</td><td>${u.electricity||'-'}</td><td>${u.water||'-'}</td><td>${u.contractDurationMonths||12}</td><td>${formatDateForDisplay(u.startDate)}</td><td>${end?formatDateForDisplay(end):'-'}</td><td class="${ar>0?'overdue-value':''}">${ar>0?ar.toFixed(2)+' ر.ع.':'0'}</td><td class="action-icons"><button class="edit-btn" onclick="editUnit(${u.id})"><i class="fas fa-edit"></i></button><button class="evict-btn" onclick="evictUnit(${u.id})"><i class="fas fa-door-open"></i></button><button class="delete-btn" onclick="deleteUnit(${u.id})"><i class="fas fa-trash"></i></button></td></tr>`; }); document.getElementById('detailsBuildingName').innerHTML=bname; document.querySelector('#buildingDetailsTable tbody').innerHTML=tb; document.getElementById('buildingDetailsSection').style.display='block'; renderVacantSection(); renderOverdueReport(); }
+function closeBuildingDetails(){ document.getElementById('buildingDetailsSection').style.display='none'; }
+function showAllBuildingsReport(){ selectedBuildingForReports=null; renderVacantSection(); renderOverdueReport(); closeBuildingDetails(); alert(currentLang === 'ar' ? 'جاري عرض جميع المباني' : 'Showing all buildings'); }
+function evictUnit(id){ if(confirm(currentLang === 'ar' ? 'إخلاء الوحدة؟' : 'Evict this unit?')){ units=units.filter(u=>u.id!==id); payments=payments.filter(p=>p.unitId!==id); saveData(); updateAll(); alert(currentLang === 'ar' ? 'تم الإخلاء' : 'Evicted'); } }
+function renderVacantSection(){ let all=[]; buildingStructure.forEach(b=>{ if(selectedBuildingForReports && b.building!==selectedBuildingForReports) return; b.units.forEach(u=>all.push({building:b.building, unitNumber:u.unitNumber, unitType:u.unitType||'', electricity:u.electricity||'', water:u.water||''})); }); let rented=new Set(units.map(u=>`${u.building}|${u.unit}`)); let vacant=all.filter(v=>!rented.has(`${v.building}|${v.unitNumber}`)); let sec=document.getElementById('vacantSection'); if(vacant.length===0){ sec.innerHTML=`<div>${currentLang === 'ar' ? (selectedBuildingForReports?`لا توجد وحدات شاغرة في "${selectedBuildingForReports}"`:'لا توجد وحدات شاغرة') : (selectedBuildingForReports?`No vacant units in "${selectedBuildingForReports}"`:'No vacant units')}</div>`; return; } let html='<div class="table-wrapper"><table><thead><tr><th>'+ (currentLang === 'ar' ? 'البناية' : 'Building') +'</th><th>'+ (currentLang === 'ar' ? 'الوحدة' : 'Unit') +'</th><th>'+ (currentLang === 'ar' ? 'وصف' : 'Description') +'</th><th>'+ (currentLang === 'ar' ? 'كهرباء' : 'Electricity') +'</th><th>'+ (currentLang === 'ar' ? 'مياه' : 'Water') +'</th><th>'+ (currentLang === 'ar' ? 'إجراءات' : 'Actions') +'</th></thead><tbody>'; vacant.forEach(v=>{ html+=`<tr><td>${v.building}</td><td>${v.unitNumber}</td><td>${v.unitType||'-'}</td><td>${v.electricity||'-'}</td><td>${v.water||'-'}</td><td><button class="rent-btn" onclick="openRentModal('${v.building.replace(/'/g,"\\'")}','${v.unitNumber.replace(/'/g,"\\'")}')">${currentLang === 'ar' ? 'تأجير' : 'Rent'}</button></td></tr>`; }); html+='</tbody></table></div>'; if(selectedBuildingForReports) html+=`<button class="action-btn" style="background:#6c757d;margin-top:10px;" onclick="showAllBuildingsReport()">${currentLang === 'ar' ? 'عرض كل المباني' : 'Show All Buildings'}</button>`; sec.innerHTML=html; }
+function openRentModal(b,u){ document.getElementById('rentBuilding').value=b; document.getElementById('rentUnitNumber').value=u; document.getElementById('rentTenant').value=''; document.getElementById('rentIdNumber').value=''; document.getElementById('rentPhone').value=''; document.getElementById('rentMonthly').value=''; document.getElementById('rentDuration').value=12; document.getElementById('rentStartDate').value=''; document.getElementById('rentEndDateDisplay').value=''; document.getElementById('rentVacantModal').style.display='flex'; let inp=document.querySelector("#rentStartDate"); if(inp._flatpickr) inp._flatpickr.destroy(); flatpickr("#rentStartDate",{dateFormat:"d/m/Y",locale:"ar", onChange:updateRentEndDate}); }
+function closeRentModal(){ document.getElementById('rentVacantModal').style.display='none'; }
+function rentVacantUnit(e){ e.preventDefault(); let building=document.getElementById('rentBuilding').value, unitNumber=document.getElementById('rentUnitNumber').value, tenant=document.getElementById('rentTenant').value.trim(), idNum=document.getElementById('rentIdNumber').value.trim(), phone=document.getElementById('rentPhone').value.trim(), rent=parseFloat(document.getElementById('rentMonthly').value), startDMY=document.getElementById('rentStartDate').value.trim(), dur=parseInt(document.getElementById('rentDuration').value); if(!tenant||!idNum||!phone||!rent||!startDMY||!dur){ alert(currentLang === 'ar' ? 'جميع الحقول مطلوبة' : 'All fields are required'); return; } if(!isValidDateDMY(startDMY)){ alert(currentLang === 'ar' ? 'تاريخ غير صحيح' : 'Invalid date'); return; } let startISO=convertDMYtoYMD(startDMY); if(startISO>new Date().toISOString().slice(0,10)){ alert(currentLang === 'ar' ? 'تاريخ بداية العقد لا يمكن أن يكون في المستقبل' : 'Start date cannot be in the future'); return; } let endISO=calculateEndDateISO(startISO,dur); let bobj=buildingStructure.find(b=>b.building===building); let uinfo=bobj?.units.find(u=>u.unitNumber===unitNumber); if(!uinfo){ alert(currentLang === 'ar' ? 'بيانات الوحدة غير موجودة' : 'Unit data not found'); return; } units.push({id:Date.now(), building, unit:unitNumber, tenant, idNumber:idNum, phone, unitType:uinfo.unitType||'', activity:'', monthlyRent:rent, electricity:uinfo.electricity||'', water:uinfo.water||'', startDate:startISO, endDate:endISO, contractDurationMonths:dur, isVacant:false}); saveData(); updateAll(); closeRentModal(); alert(currentLang === 'ar' ? 'تم التأجير' : 'Rented successfully'); }
+function renderOverdueReport(){ let over=units.filter(u=>calculateUnitArrears(u)>0); if(selectedBuildingForReports) over=over.filter(u=>u.building===selectedBuildingForReports); let sec=document.getElementById('reportSection'); if(!over.length){ sec.innerHTML=`<div>${currentLang === 'ar' ? (selectedBuildingForReports?`لا توجد متأخرات في "${selectedBuildingForReports}"`:'لا توجد متأخرات') : (selectedBuildingForReports?`No arrears in "${selectedBuildingForReports}"`:'No arrears')}</div>`; return; } let html='<div class="table-wrapper"><table><thead><tr><th>'+ (currentLang === 'ar' ? 'البناية' : 'Building') +'</th><th>'+ (currentLang === 'ar' ? 'الوحدة' : 'Unit') +'</th><th>'+ (currentLang === 'ar' ? 'وصف' : 'Description') +'</th><th>'+ (currentLang === 'ar' ? 'المستأجر' : 'Tenant') +'</th><th>'+ (currentLang === 'ar' ? 'الهوية' : 'ID') +'</th><th>'+ (currentLang === 'ar' ? 'الهاتف' : 'Phone') +'</th><th>'+ (currentLang === 'ar' ? 'الإيجار' : 'Rent') +'</th><th>'+ (currentLang === 'ar' ? 'المتأخرات' : 'Arrears') +'</th><th>'+ (currentLang === 'ar' ? 'تاريخ العقد' : 'Start Date') +'</th><th>'+ (currentLang === 'ar' ? 'نهاية العقد' : 'End Date') +'</th></thead><tbody>'; over.forEach(u=>{ let a=calculateUnitArrears(u); let end=u.endDate||calculateEndDateISO(u.startDate,u.contractDurationMonths); html+=`<tr class="overdue-row"><td>${u.building}</td><td>${u.unit}</td><td>${u.unitType||'-'}</td><td>${u.tenant}</td><td>${u.idNumber||'-'}</td><td>${u.phone||'-'}</td><td>${u.monthlyRent} ر.ع.</td><td class="overdue-value">${a.toFixed(2)} ر.ع.</td><td>${formatDateForDisplay(u.startDate)}</td><td>${end?formatDateForDisplay(end):'-'}</td></tr>`; }); html+='</tbody></table></div>'; if(selectedBuildingForReports) html+=`<button class="action-btn" style="background:#6c757d;margin-top:10px;" onclick="showAllBuildingsReport()">${currentLang === 'ar' ? 'عرض كل المباني' : 'Show All Buildings'}</button>`; sec.innerHTML=html; }
+function renderPaymentsList(){ if(!payments.length){ document.getElementById('paymentsSection').innerHTML='<div>'+(currentLang === 'ar' ? 'لا توجد تحصيلات' : 'No payments')+'</div>'; return; } let html='<div class="table-wrapper"><tr><thead> <tr><th>'+ (currentLang === 'ar' ? 'البناية' : 'Building') +'</th><th>'+ (currentLang === 'ar' ? 'الوحدة' : 'Unit') +'</th><th>'+ (currentLang === 'ar' ? 'المستأجر' : 'Tenant') +'</th><th>'+ (currentLang === 'ar' ? 'المبلغ' : 'Amount') +'</th><th>'+ (currentLang === 'ar' ? 'التاريخ' : 'Date') +'</th><th>'+ (currentLang === 'ar' ? 'إجراءات' : 'Actions') +'</th></tr></thead><tbody>'; payments.forEach(p=>{ let u=units.find(u=>u.id===p.unitId); if(!u) return; html+=`<tr><td>${u.building}</td><td>${u.unit}</td><td>${u.tenant}</td><td>${p.amount} ر.ع.</td><td>${formatDateForDisplay(p.date)}</td><td class="action-icons"><button class="edit-payment-btn" onclick="openEditPaymentModal(${p.id},${p.unitId},${p.amount},'${p.date}')"><i class="fas fa-edit"></i></button><button class="delete-payment-btn" onclick="deletePayment(${p.id})"><i class="fas fa-trash"></i></button></td></tr>`; }); html+='</tbody></table></div>'; document.getElementById('paymentsSection').innerHTML=html; }
+function openEditPaymentModal(id,uid,amt,date){ document.getElementById('editPaymentId').value=id; document.getElementById('editPaymentUnitId').value=uid; document.getElementById('editPaymentAmount').value=amt; document.getElementById('editPaymentDate').value=formatDateForDisplay(date); document.getElementById('editPaymentModal').style.display='flex'; let inp=document.querySelector("#editPaymentDate"); if(inp._flatpickr) inp._flatpickr.destroy(); flatpickr("#editPaymentDate",{dateFormat:"d/m/Y",locale:"ar"}); }
+function closeEditPaymentModal(){ document.getElementById('editPaymentModal').style.display='none'; }
+function updatePayment(e){ e.preventDefault(); let id=parseInt(document.getElementById('editPaymentId').value); let amt=parseFloat(document.getElementById('editPaymentAmount').value); let dmy=document.getElementById('editPaymentDate').value.trim(); if(!amt||amt<=0||!isValidDateDMY(dmy)){ alert(currentLang === 'ar' ? 'بيانات غير صحيحة' : 'Invalid data'); return; } let idx=payments.findIndex(p=>p.id===id); if(idx!==-1){ payments[idx].amount=amt; payments[idx].date=convertDMYtoYMD(dmy); saveData(); updateAll(); closeEditPaymentModal(); alert(currentLang === 'ar' ? 'تم التعديل' : 'Updated'); } }
+function deletePayment(id){ if(confirm(currentLang === 'ar' ? 'حذف التحصيل؟' : 'Delete payment?')){ payments=payments.filter(p=>p.id!==id); saveData(); updateAll(); alert(currentLang === 'ar' ? 'تم الحذف' : 'Deleted'); } }
+function populateBuildingSelect(){ let sel=document.getElementById('buildingSelect'); sel.innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- اختر البناية --' : '-- Select Building --') +'</option>'+buildingStructure.map(b=>`<option value="${b.building}">${b.building}</option>`).join(''); }
+function updateUnitNumbersList(){ let bld=document.getElementById('buildingSelect').value; let usel=document.getElementById('unitNumberSelect'); let obj=buildingStructure.find(b=>b.building===bld); if(!bld||!obj){ usel.innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- اختر الوحدة --' : '-- Select Unit --') +'</option>'; return; } let existing=units.filter(u=>u.building===bld).map(u=>u.unit); let avail=obj.units.filter(u=>!existing.includes(u.unitNumber)); if(!avail.length){ usel.innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- جميع الوحدات مضافة --' : '-- All units added --') +'</option>'; return; } usel.innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- اختر الوحدة --' : '-- Select Unit --') +'</option>'+avail.map(u=>`<option value="${u.unitNumber}" data-type="${u.unitType||''}" data-electricity="${u.electricity||''}" data-water="${u.water||''}">${u.unitNumber}</option>`).join(''); let sel=usel; sel.onchange=function(){ let opt=sel.options[sel.selectedIndex]; document.getElementById('unitType').value=opt?.getAttribute('data-type')||''; document.getElementById('electricity').value=opt?.getAttribute('data-electricity')||''; document.getElementById('water').value=opt?.getAttribute('data-water')||''; }; }
+function addUnit(e){ e.preventDefault(); let building=document.getElementById('buildingSelect').value, unitNumber=document.getElementById('unitNumberSelect').value; if(!building||!unitNumber){ alert(currentLang === 'ar' ? 'اختر البناية والوحدة' : 'Select building and unit'); return; } if(units.some(u=>u.building===building&&u.unit===unitNumber)){ alert(currentLang === 'ar' ? 'الوحدة موجودة' : 'Unit already exists'); return; } let startDMY=document.getElementById('startDate').value.trim(); let dur=parseInt(document.getElementById('contractDuration').value); let tenant=document.getElementById('tenantName').value.trim(), idNum=document.getElementById('tenantId').value.trim(), phone=document.getElementById('tenantPhone').value.trim(); if(!startDMY||!isValidDateDMY(startDMY)){ alert(currentLang === 'ar' ? 'تاريخ بداية غير صحيح' : 'Invalid start date'); return; } let startISO=convertDMYtoYMD(startDMY); if(startISO>new Date().toISOString().slice(0,10)){ alert(currentLang === 'ar' ? 'لا يمكن أن يكون تاريخ البدء في المستقبل' : 'Start date cannot be in the future'); return; } if(!dur||dur<1){ alert(currentLang === 'ar' ? 'مدة العقد غير صحيحة' : 'Invalid contract duration'); return; } let endISO=calculateEndDateISO(startISO,dur); let bobj=buildingStructure.find(b=>b.building===building); let uinfo=bobj?.units.find(u=>u.unitNumber===unitNumber); let elect=uinfo?.electricity||document.getElementById('electricity').value; let wat=uinfo?.water||document.getElementById('water').value; let utype=uinfo?.unitType||document.getElementById('unitType').value; units.push({id:Date.now(), building, unit:unitNumber, tenant, idNumber:idNum, phone, unitType:utype, activity:document.getElementById('activity').value, monthlyRent:parseFloat(document.getElementById('rentValue').value), electricity:elect, water:wat, startDate:startISO, endDate:endISO, contractDurationMonths:dur, isVacant:false}); saveData(); updateAll(); closeUnitModal(); document.getElementById('unitForm').reset(); alert(currentLang === 'ar' ? '✅ تم الإضافة' : '✅ Added'); }
+function editUnit(id){ let u=units.find(u=>u.id===id); if(u){ document.getElementById('editUnitId').value=u.id; document.getElementById('editTenant').value=u.tenant; document.getElementById('editIdNumber').value=u.idNumber||''; document.getElementById('editPhone').value=u.phone||''; document.getElementById('editRent').value=u.monthlyRent; document.getElementById('editDuration').value=u.contractDurationMonths||12; document.getElementById('editStartDate').value=convertYMDtoDMY(u.startDate); let end=u.endDate||calculateEndDateISO(u.startDate,u.contractDurationMonths); document.getElementById('editEndDateDisplay').value=end?convertYMDtoDMY(end):''; document.getElementById('editUnitModal').style.display='flex'; let inp=document.querySelector("#editStartDate"); if(inp._flatpickr) inp._flatpickr.destroy(); flatpickr("#editStartDate",{dateFormat:"d/m/Y",locale:"ar",onChange:updateEditEndDate}); } }
+function updateUnit(e){ e.preventDefault(); let id=parseInt(document.getElementById('editUnitId').value); let u=units.find(u=>u.id===id); if(u){ let newStartDMY=document.getElementById('editStartDate').value.trim(); if(!newStartDMY||!isValidDateDMY(newStartDMY)){ alert(currentLang === 'ar' ? 'تاريخ غير صحيح' : 'Invalid date'); return; } let newStart=convertDMYtoYMD(newStartDMY); if(newStart>new Date().toISOString().slice(0,10)){ alert(currentLang === 'ar' ? 'تاريخ البدء مستقبلي' : 'Start date in future'); return; } let newDur=parseInt(document.getElementById('editDuration').value); let newEnd=calculateEndDateISO(newStart,newDur); u.tenant=document.getElementById('editTenant').value; u.idNumber=document.getElementById('editIdNumber').value; u.phone=document.getElementById('editPhone').value; u.monthlyRent=parseFloat(document.getElementById('editRent').value); u.startDate=newStart; u.endDate=newEnd; u.contractDurationMonths=newDur; saveData(); updateAll(); closeEditModal(); alert(currentLang === 'ar' ? 'تم التحديث' : 'Updated'); } }
+function deleteUnit(id){ if(confirm(currentLang === 'ar' ? 'حذف الوحدة؟' : 'Delete unit?')){ units=units.filter(u=>u.id!==id); payments=payments.filter(p=>p.unitId!==id); saveData(); updateAll(); } }
+function updateBuildingSelectForPayment(){ let blds=[...new Set(units.map(u=>u.building))]; document.getElementById('paymentBuilding').innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- اختر البناية --' : '-- Select Building --') +'</option>'+blds.map(b=>`<option value="${b}">${b}</option>`).join(''); }
+function updateUnitsByBuilding(){ let bld=document.getElementById('paymentBuilding').value; let bldUnits=units.filter(u=>u.building===bld); document.getElementById('paymentUnit').innerHTML='<option value="">'+ (currentLang === 'ar' ? '-- اختر الوحدة --' : '-- Select Unit --') +'</option>'+bldUnits.map(u=>`<option value="${u.id}">${u.unit} - ${u.tenant}</option>`).join(''); }
+function recordPayment(e){ e.preventDefault(); let uid=parseInt(document.getElementById('paymentUnit').value); if(!uid){ alert(currentLang === 'ar' ? 'اختر الوحدة' : 'Select unit'); return; } let amt=parseFloat(document.getElementById('paymentAmount').value); let dmy=document.getElementById('paymentDate').value.trim(); if(!dmy||!isValidDateDMY(dmy)||!amt||amt<=0){ alert(currentLang === 'ar' ? 'بيانات غير صحيحة' : 'Invalid data'); return; } let dateISO=convertDMYtoYMD(dmy); let unit=units.find(u=>u.id===uid); let curArrears=calculateUnitArrears(unit); if(amt>curArrears && curArrears>0){ if(!confirm((currentLang === 'ar' ? `المبلغ يتجاوز المتأخرات (${curArrears.toFixed(2)}). هل ترغب في دفعة زائدة؟` : `Amount exceeds arrears (${curArrears.toFixed(2)}). Allow overpayment?`))) return; } payments.push({id:Date.now(), unitId:uid, amount:amt, date:dateISO}); saveData(); updateAll(); closePaymentModal(); document.getElementById('paymentForm').reset(); alert(currentLang === 'ar' ? 'تم تسجيل التحصيل' : 'Payment recorded'); }
+document.getElementById('excelUpload').addEventListener('change', function(e){ let file=e.target.files[0]; if(!file) return; document.getElementById('fileInfo').innerHTML='⏳ '+(currentLang === 'ar' ? 'جاري القراءة...' : 'Reading...'); let reader=new FileReader(); reader.onload=function(evt){ try{ let data=new Uint8Array(evt.target.result); let wb=XLSX.read(data,{type:'array'}); let sheet=wb.Sheets[wb.SheetNames[0]]; let rows=XLSX.utils.sheet_to_json(sheet); if(!rows.length) throw new Error('File is empty'); let cols=Object.keys(rows[0]); let buildingCol=cols.find(c=>/اسم البناية|building/i.test(c)); let unitCol=cols.find(c=>/رقم الوحدة|unit/i.test(c)); let descCol=cols.find(c=>/وصف الوحدة|نوع الوحدة|type/i.test(c)); let elecCol=cols.find(c=>/عداد الكهرباء|electricity/i.test(c)); let waterCol=cols.find(c=>/عداد المياه|water/i.test(c)); if(!buildingCol||!unitCol) throw new Error('Required columns: building name and unit number'); if(!confirm(currentLang === 'ar' ? 'سيتم استبدال هيكل المباني الحالي. استمرار؟' : 'Existing building structure will be replaced. Continue?')){ document.getElementById('fileInfo').innerHTML='❌ '+(currentLang === 'ar' ? 'تم الإلغاء' : 'Cancelled'); return; } let structMap=new Map(); rows.forEach(row=>{ let building=String(row[buildingCol]||'').trim(); let unitNumber=String(row[unitCol]||'').trim(); if(building && unitNumber){ if(!structMap.has(building)) structMap.set(building,[]); let existing=structMap.get(building).find(u=>u.unitNumber===unitNumber); if(!existing){ structMap.get(building).push({ unitNumber, unitType:descCol?String(row[descCol]||'').trim():'', electricity:elecCol?String(row[elecCol]||'').trim():'', water:waterCol?String(row[waterCol]||'').trim():'' }); } } }); units=[]; payments=[]; buildingStructure=[]; for(let [bld,unitsArr] of structMap) buildingStructure.push({building:bld, units:unitsArr}); saveData(); let totalUnits= buildingStructure.reduce((s,b)=>s+b.units.length,0); document.getElementById('fileInfo').innerHTML=`✅ ${currentLang === 'ar' ? `تم استيراد ${totalUnits} وحدة في ${buildingStructure.length} بناية` : `Imported ${totalUnits} units in ${buildingStructure.length} buildings`}`; updateAll(); }catch(err){ document.getElementById('fileInfo').innerHTML='❌ '+err.message; } }; reader.readAsArrayBuffer(file); });
+function exportAllData(){ let unitsData=units.map(u=>({ [currentLang === 'ar' ? 'البناية' : 'Building']:u.building, [currentLang === 'ar' ? 'الوحدة' : 'Unit']:u.unit, [currentLang === 'ar' ? 'وصف الوحدة' : 'Description']:u.unitType||'-', [currentLang === 'ar' ? 'عداد الكهرباء' : 'Electricity Meter']:u.electricity||'-', [currentLang === 'ar' ? 'عداد المياه' : 'Water Meter']:u.water||'-', [currentLang === 'ar' ? 'المستأجر' : 'Tenant']:u.tenant, [currentLang === 'ar' ? 'رقم الهوية' : 'ID Number']:u.idNumber||'-', [currentLang === 'ar' ? 'رقم الهاتف' : 'Phone']:u.phone||'-', [currentLang === 'ar' ? 'الإيجار الشهري' : 'Monthly Rent']:u.monthlyRent, [currentLang === 'ar' ? 'مدة العقد (شهر)' : 'Contract (months)']:u.contractDurationMonths||12, [currentLang === 'ar' ? 'تاريخ بداية العقد' : 'Start Date']:formatDateForDisplay(u.startDate), [currentLang === 'ar' ? 'تاريخ انتهاء العقد' : 'End Date']:formatDateForDisplay(u.endDate||calculateEndDateISO(u.startDate,u.contractDurationMonths)), [currentLang === 'ar' ? 'المتأخرات (ر.ع.)' : 'Arrears (OMR)']:calculateUnitArrears(u) })); let wsUnits=XLSX.utils.json_to_sheet(unitsData); let paymentsData=payments.map(p=>{ let u=units.find(u=>u.id===p.unitId); return { [currentLang === 'ar' ? 'البناية' : 'Building']:u?u.building:'-', [currentLang === 'ar' ? 'الوحدة' : 'Unit']:u?u.unit:'-', [currentLang === 'ar' ? 'المستأجر' : 'Tenant']:u?u.tenant:'-', [currentLang === 'ar' ? 'المبلغ (ر.ع.)' : 'Amount (OMR)']:p.amount, [currentLang === 'ar' ? 'تاريخ التحصيل' : 'Date']:formatDateForDisplay(p.date) }; }); let wsPayments=XLSX.utils.json_to_sheet(paymentsData); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,wsUnits, currentLang === 'ar' ? 'الوحدات المؤجرة' : 'Rented Units'); XLSX.utils.book_append_sheet(wb,wsPayments, currentLang === 'ar' ? 'سجل التحصيلات' : 'Payments'); XLSX.writeFile(wb,`RentWise_${new Date().toLocaleDateString()}.xlsx`); }
+function openUnitForm(){ document.getElementById('unitModal').style.display='flex'; populateBuildingSelect(); document.getElementById('startDate').value=''; document.getElementById('endDateDisplay').value=''; let inp=document.querySelector("#startDate"); if(inp._flatpickr) inp._flatpickr.destroy(); flatpickr("#startDate",{dateFormat:"d/m/Y",locale:"ar",onChange:updateEndDate}); }
+function closeUnitModal(){ document.getElementById('unitModal').style.display='none'; }
+function openPaymentForm(){ document.getElementById('paymentModal').style.display='flex'; updateBuildingSelectForPayment(); document.getElementById('paymentDate').value=''; let inp=document.querySelector("#paymentDate"); if(inp._flatpickr) inp._flatpickr.destroy(); flatpickr("#paymentDate",{dateFormat:"d/m/Y",locale:"ar"}); }
+function closePaymentModal(){ document.getElementById('paymentModal').style.display='none'; }
+function closeEditModal(){ document.getElementById('editUnitModal').style.display='none'; }
+function initDatePickers(){ let opts={dateFormat:"d/m/Y", locale:"ar", allowInput:true}; flatpickr("#startDate",{...opts, onChange:updateEndDate}); flatpickr("#paymentDate",opts); flatpickr("#editStartDate",{...opts, onChange:updateEditEndDate}); flatpickr("#rentStartDate",{...opts, onChange:updateRentEndDate}); flatpickr("#editPaymentDate",opts); }
+function updateEndDate(sel,str){ let dur=parseInt(document.getElementById('contractDuration').value); let disp=document.getElementById('endDateDisplay'); if(str && !isNaN(dur)){ let p=str.split('/'); let d=new Date(p[2],p[1]-1,p[0]); if(!isNaN(d)){ let e=new Date(d); e.setMonth(e.getMonth()+dur); e.setDate(e.getDate()-1); disp.value=`${String(e.getDate()).padStart(2,'0')}/${String(e.getMonth()+1).padStart(2,'0')}/${e.getFullYear()}`; } else disp.value=''; } else disp.value=''; }
+function updateEditEndDate(sel,str){ let dur=parseInt(document.getElementById('editDuration').value); let disp=document.getElementById('editEndDateDisplay'); if(str && !isNaN(dur)){ let p=str.split('/'); let d=new Date(p[2],p[1]-1,p[0]); if(!isNaN(d)){ let e=new Date(d); e.setMonth(e.getMonth()+dur); e.setDate(e.getDate()-1); disp.value=`${String(e.getDate()).padStart(2,'0')}/${String(e.getMonth()+1).padStart(2,'0')}/${e.getFullYear()}`; } else disp.value=''; } else disp.value=''; }
+function updateRentEndDate(sel,str){ let dur=parseInt(document.getElementById('rentDuration').value); let disp=document.getElementById('rentEndDateDisplay'); if(str && !isNaN(dur)){ let p=str.split('/'); let d=new Date(p[2],p[1]-1,p[0]); if(!isNaN(d)){ let e=new Date(d); e.setMonth(e.getMonth()+dur); e.setDate(e.getDate()-1); disp.value=`${String(e.getDate()).padStart(2,'0')}/${String(e.getMonth()+1).padStart(2,'0')}/${e.getFullYear()}`; } else disp.value=''; } else disp.value=''; }
+function login(){ let u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim(); if(u==='admin' && p==='12345'){ localStorage.setItem('dashboard_auth','true'); document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboardMain').style.display='block'; loadData(); updateDateTime(); translatePage(); } else document.getElementById('errorMsg').innerText=currentLang === 'ar' ? 'بيانات خاطئة' : 'Wrong credentials'; }
+function logout(){ localStorage.removeItem('dashboard_auth'); document.getElementById('loginScreen').style.display='flex'; document.getElementById('dashboardMain').style.display='none'; }
+function updateDateTime(){ let now=new Date(); let d=String(now.getDate()).padStart(2,'0'), m=String(now.getMonth()+1).padStart(2,'0'), y=now.getFullYear(), h=String(now.getHours()).padStart(2,'0'), mi=String(now.getMinutes()).padStart(2,'0'); document.getElementById('dateTime').innerHTML=`<i class="fas fa-calendar-alt"></i> ${d}/${m}/${y} ${h}:${mi}`; }
+setInterval(updateDateTime,1000);
+function openAddBuildingModal(){ document.getElementById('newBuildingName').value=''; document.getElementById('newBuildingDesc').value=''; document.getElementById('addBuildingModal').style.display='flex'; }
+function closeAddBuildingModal(){ document.getElementById('addBuildingModal').style.display='none'; }
+function addNewBuilding(e){ e.preventDefault(); let name=document.getElementById('newBuildingName').value.trim(); if(!name){ alert(currentLang === 'ar' ? 'أدخل اسم البناية' : 'Enter building name'); return; } if(buildingStructure.some(b=>b.building===name)){ alert(currentLang === 'ar' ? 'الاسم موجود' : 'Name exists'); return; } buildingStructure.push({building:name, units:[]}); saveData(); updateAll(); closeAddBuildingModal(); alert(currentLang === 'ar' ? 'تم إضافة البناية' : 'Building added'); }
+function openAddUnitToBuildingModal(){ populateTargetBuildingSelect(); document.getElementById('targetUnitNumber').value=''; document.getElementById('targetUnitType').value=''; document.getElementById('targetElectricity').value=''; document.getElementById('targetWater').value=''; document.getElementById('multipleUnitsNumbers').value=''; document.getElementById('addUnitToBuildingModal').style.display='flex'; }
+function closeAddUnitToBuildingModal(){ document.getElementById('addUnitToBuildingModal').style.display='none'; }
+function populateTargetBuildingSelect(){ let sel=document.getElementById('targetBuildingSelect'); sel.innerHTML=buildingStructure.map(b=>`<option value="${b.building}">${b.building}</option>`).join(''); }
+function addUnitToBuilding(e){ e.preventDefault(); let bld=document.getElementById('targetBuildingSelect').value; let num=document.getElementById('targetUnitNumber').value.trim(); if(!bld||!num){ alert(currentLang === 'ar' ? 'اختر البناية وأدخل رقم الوحدة' : 'Select building and enter unit number'); return; } let bobj=buildingStructure.find(b=>b.building===bld); if(!bobj){ alert(currentLang === 'ar' ? 'بناية غير موجودة' : 'Building not found'); return; } if(bobj.units.some(u=>u.unitNumber===num)){ alert(currentLang === 'ar' ? 'الوحدة موجودة' : 'Unit already exists'); return; } bobj.units.push({ unitNumber:num, unitType:document.getElementById('targetUnitType').value.trim(), electricity:document.getElementById('targetElectricity').value.trim(), water:document.getElementById('targetWater').value.trim() }); saveData(); updateAll(); closeAddUnitToBuildingModal(); alert(currentLang === 'ar' ? 'تم إضافة الوحدة' : 'Unit added'); }
+function addMultipleUnits(e){ e.preventDefault(); let bld=document.getElementById('targetBuildingSelect').value; let nums=document.getElementById('multipleUnitsNumbers').value.trim(); if(!bld||!nums){ alert(currentLang === 'ar' ? 'اختر البناية وأدخل أرقام الوحدات' : 'Select building and enter unit numbers'); return; } let bobj=buildingStructure.find(b=>b.building===bld); if(!bobj){ alert(currentLang === 'ar' ? 'بناية غير موجودة' : 'Building not found'); return; } let numbers=nums.split(',').map(s=>s.trim()).filter(s=>s); let added=0, dup=[]; numbers.forEach(n=>{ if(!bobj.units.some(u=>u.unitNumber===n)){ bobj.units.push({unitNumber:n, unitType:'', electricity:'', water:''}); added++; } else dup.push(n); }); if(added){ saveData(); updateAll(); alert((currentLang === 'ar' ? `تمت إضافة ${added} وحدة جديدة. ${dup.length?`المكررة: ${dup.join(',')}`:''}` : `Added ${added} new units. ${dup.length?`Duplicates: ${dup.join(',')}`:''}`)); } else alert(currentLang === 'ar' ? 'جميع الوحدات مكررة' : 'All units are duplicates'); closeAddUnitToBuildingModal(); }
+
+window.addEventListener('DOMContentLoaded',function(){ let auth = localStorage.getItem('dashboard_auth'); if(auth==='true'){ document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboardMain').style.display='block'; loadData(); updateDateTime(); } else { document.getElementById('loginScreen').style.display='flex'; document.getElementById('dashboardMain').style.display='none'; } translatePage(); initDatePickers(); let toggleBtn = document.getElementById('langToggleBtn'); if(toggleBtn) toggleBtn.addEventListener('click', toggleLanguage); });
+window.onclick=function(e){ if(e.target.classList.contains('modal')) e.target.style.display='none'; };
+</script>
+</body>
+</html>
