@@ -2,6 +2,49 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <title>Rent Wise - نسخة تجريبية (14 يومًا)</title>
+    <script>
+        // التحقق من صلاحية الفترة التجريبية
+        const TRIAL_DAYS = 14;
+        const STORAGE_KEY = 'rentwise_trial_start';
+        
+        function checkTrial() {
+            let startDate = localStorage.getItem(STORAGE_KEY);
+            if (!startDate) {
+                // أول استخدام: تسجيل التاريخ الحالي
+                const now = new Date();
+                localStorage.setItem(STORAGE_KEY, now.toISOString());
+                return true;
+            }
+            const start = new Date(startDate);
+            const now = new Date();
+            const diffDays = (now - start) / (1000 * 60 * 60 * 24);
+            if (diffDays > TRIAL_DAYS) {
+                // انتهت الفترة التجريبية
+                document.body.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#0a0a0a; color:white; font-family:Cairo; text-align:center; padding:20px;">
+                        <div>
+                            <h1>⏰ انتهت الفترة التجريبية</h1>
+                            <p>يمكنك شراء الترخيص الكامل للاستمرار في استخدام Rent Wise.</p>
+                            <p>للطلب: <strong>99351701</strong> (واتساب)</p>
+                        </div>
+                    </div>
+                `;
+                return false;
+            }
+            return true;
+        }
+        
+        // إذا انتهت المدة، اعرض رسالة واوقف تحميل البرنامج
+        if (!checkTrial()) {
+            throw new Error("Trial expired");
+        }
+    </script>
+    <!-- باقي الكود الأصلي للبرنامج هنا -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Rent Wise - نظام إدارة العقارات</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
